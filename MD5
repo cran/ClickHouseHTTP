@@ -1,10 +1,10 @@
-c6251bb3947f32d9e957c62aa1199e2d *DESCRIPTION
+d2ebab6860553c94ed9b111c55142907 *DESCRIPTION
 74562ac54c9a6d63c99495c23b3d1201 *NAMESPACE
-3ba303c13d3a0f321911130ea8a18ebb *R/connection.R
-f924d5d01dda92f75a132cdbb2f27523 *R/driver.R
+6a8e9cb5f4097e968a57d75878f4f751 *R/connection.R
+788d443627559234f5f82d137907ed5a *R/driver.R
 ebb11c325319f94a69046d2bed791a68 *R/namespace.R
-84930dfdda5535a1d528c8d996a84468 *R/result.R
+cdc93f71f61162785544adfea08ef6de *R/result.R
 daf6921dcc20f4bcc239b89187284c8c *man/ClickHouseHTTP.Rd
 7489148ee2bc0d921b04f681d49e168a *man/ClickHouseHTTPConnection-class.Rd
-9976a8bb3e1c9b547da1c58deb5a68de *man/ClickHouseHTTPDriver-class.Rd
+28bbca067f322f237e5f87380a41d28b *man/ClickHouseHTTPDriver-class.Rd
 8bdaab9c289ee72962e6b8a220bcf406 *man/ClickHouseHTTPResult-class.Rd

@@ -4,19 +4,19 @@
 #'
 #' @export
 #'
-methods::setClass("ClickHouseHTTPDriver", contains = "DBIDriver")
+setClass("ClickHouseHTTPDriver", contains = "DBIDriver")
 
 ###############################################################################@
 ## dbUnloadDrive ----
 ##
-methods::setMethod("dbUnloadDriver", "ClickHouseHTTPDriver", function(drv, ...){
+setMethod("dbUnloadDriver", "ClickHouseHTTPDriver", function(drv, ...){
    TRUE
 })
 
 ###############################################################################@
 ## show ----
 ##
-methods::setMethod("show", "ClickHouseHTTPDriver", function(object){
+setMethod("show", "ClickHouseHTTPDriver", function(object){
    cat("<ClickHouseHTTPDriver>\n")
 })
 
@@ -31,7 +31,7 @@ methods::setMethod("show", "ClickHouseHTTPDriver", function(object){
 #' @export
 #'
 ClickHouseHTTP <- function(){
-   methods::new("ClickHouseHTTPDriver")
+   new("ClickHouseHTTPDriver")
 }
 
 ###############################################################################@
@@ -47,6 +47,8 @@ ClickHouseHTTP <- function(){
 #' @param https a logical to use the HTTPS protocol (default: FALSE)
 #' @param ssl_verifypeer a logical to verify SSL certificate when using
 #' HTTPS (default: TRUE)
+#' @param host_path a path to use on host (e.g. "ClickHouse/"):
+#' it allows to connect on a server behind a reverse proxy for example
 #' @param session_timeout timeout in seconds (default: 3600L seconds)
 #' @param convert_uint a logical: if TRUE (default), UInt ClickHouse
 #' data types are converted in the following R classes:
@@ -57,6 +59,9 @@ ClickHouseHTTP <- function(){
 #' - UInt32: POSIXct
 #' (when using Arrow format
 #' in [dbSendQuery,ClickHouseHTTPConnection,character-method])
+#' @param extended_headers a named list with other HTTP headers
+#' (for example: `extended_headers=list("X-Authorization"="Bearer <token>")`
+#' can be used for OAuth access delegation)
 #' @param ... Other parameters passed on to methods
 #'
 #' @return A ClickHouseHTTPConnection
@@ -69,7 +74,7 @@ ClickHouseHTTP <- function(){
 #'
 #' @export
 #'
-methods::setMethod(
+setMethod(
    "dbConnect", "ClickHouseHTTPDriver",
    function(
       drv,
@@ -80,10 +85,13 @@ methods::setMethod(
       password="",
       https=FALSE,
       ssl_verifypeer=TRUE,
+      host_path=NA,
       session_timeout=3600L,
       convert_uint=TRUE,
+      extended_headers=list(),
       ...
    ){
+      host_path <- as.character(host_path)
       stopifnot(
          is.character(host), length(host)==1, !is.na(host),
          is.numeric(port), length(port)==1, !is.na(port),
@@ -94,17 +102,19 @@ methods::setMethod(
          is.logical(https), length(https)==1, !is.na(https),
          is.logical(ssl_verifypeer), length(ssl_verifypeer)==1,
          !is.na(ssl_verifypeer),
+         length(host_path)==1, is.character(host_path),
          is.numeric(session_timeout), length(session_timeout)==1,
          !is.na(session_timeout),
          is.logical(convert_uint), length(convert_uint)==1,
-         !is.na(convert_uint)
+         !is.na(convert_uint),
+         is.list(extended_headers)
       )
       session <- paste(
          format(Sys.time(), format="%Y%m%d%H%M%S"),
          paste(sample(c(letters, LETTERS), 10), collapse=""),
          sep=""
       )
-      toRet <- methods::new(
+      toRet <- new(
          "ClickHouseHTTPConnection",
          host=host,
          port=as.integer(port),
@@ -114,8 +124,10 @@ methods::setMethod(
          ),
          https=https,
          ssl_verifypeer=ssl_verifypeer,
+         host_path=host_path,
          session=session,
-         convert_uint=convert_uint
+         convert_uint=convert_uint,
+         extended_headers=extended_headers
       )
 
       ## Check connection
@@ -123,6 +135,7 @@ methods::setMethod(
       if(!v){
          stop(attr(v, "m"))
       }
+      toRet@user <- attr(v, "user")
 
       ## Set default db
       DBI::dbSendQuery(toRet, sprintf("USE `%s`", dbname))
@@ -135,7 +148,7 @@ methods::setMethod(
 ###############################################################################@
 ## dbDataType ----
 ##
-methods::setMethod(
+setMethod(
    "dbDataType", "ClickHouseHTTPDriver",
    function(dbObj, obj, ...){
       toRet <-

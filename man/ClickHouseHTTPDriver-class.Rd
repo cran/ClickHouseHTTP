@@ -15,8 +15,10 @@
   password = "",
   https = FALSE,
   ssl_verifypeer = TRUE,
+  host_path = NA,
   session_timeout = 3600L,
   convert_uint = TRUE,
+  extended_headers = list(),
   ...
 )
 }
@@ -38,6 +40,9 @@
 \item{ssl_verifypeer}{a logical to verify SSL certificate when using
 HTTPS (default: TRUE)}
 
+\item{host_path}{a path to use on host (e.g. "ClickHouse/"):
+it allows to connect on a server behind a reverse proxy for example}
+
 \item{session_timeout}{timeout in seconds (default: 3600L seconds)}
 
 \item{convert_uint}{a logical: if TRUE (default), UInt ClickHouse
@@ -51,6 +56,10 @@ in \link{dbSendQuery,ClickHouseHTTPConnection,character-method})
 (when using Arrow format
 in \link{dbSendQuery,ClickHouseHTTPConnection,character-method})
 }}
+
+\item{extended_headers}{a named list with other HTTP headers
+(for example: \code{extended_headers=list("X-Authorization"="Bearer <token>")}
+can be used for OAuth access delegation)}
 
 \item{...}{Other parameters passed on to methods}
 }
