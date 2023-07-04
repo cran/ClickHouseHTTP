@@ -17,7 +17,8 @@ setClass(
       host_path="character",
       session="character",
       convert_uint="logical",
-      extended_headers="list"
+      extended_headers="list",
+      reset_handle="logical"
    )
 )
 
@@ -531,17 +532,28 @@ setMethod(
    ## Add other headers ----
    qheaders <- c(qheaders, dbc@extended_headers)
    
-   httr::POST(
-      url=.build_http_req(
-         host=dbc@host, port=dbc@port, https=dbc@https,
-         host_path=dbc@host_path,
-         session=dbc@session, session_timeout=session_timeout,
-         query=query
-      ),
-      body=qbody,
-      do.call(add_headers, qheaders),
-      config=httr::config(ssl_verifypeer=as.integer(dbc@ssl_verifypeer))
+   url <- .build_http_req(
+      host=dbc@host, port=dbc@port, https=dbc@https,
+      host_path=dbc@host_path,
+      session=dbc@session, session_timeout=session_timeout,
+      query=query
    )
+   if(dbc@reset_handle){
+      httr::POST(
+         url=url,
+         body=qbody,
+         do.call(httr::add_headers, qheaders),
+         config=httr::config(ssl_verifypeer=as.integer(dbc@ssl_verifypeer)),
+         handle=httr::handle_reset(url)
+      )
+   }else{
+      httr::POST(
+         url=url,
+         body=qbody,
+         do.call(httr::add_headers, qheaders),
+         config=httr::config(ssl_verifypeer=as.integer(dbc@ssl_verifypeer))
+      )
+   }
 }
 
 .query_success <- function(r){
