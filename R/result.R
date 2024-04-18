@@ -80,6 +80,18 @@ setMethod(
                   grepl("Int", chType), "integer",
                   NA
                )))))))))
+            cast_type <- function(type, x){
+               switch(
+                  type,
+                  "integer"=as.integer(x),
+                  "numeric"=as.numeric(x),
+                  "logical"=as.logical(x),
+                  "character"=as.character(x),
+                  "Date"=as.Date(x),
+                  "POSIXct"=as.POSIXct(x),
+                  "integer64"=as(x, "integer64")
+               )
+            }
             if(any(is.na(rType))){
                ut <- unique(chType[which(is.na(rType))])
                warning(sprintf(
@@ -91,7 +103,8 @@ setMethod(
                toRet <- try(data.table::fread(
                   text=l,
                   header=FALSE, sep="\t",
-                  colClasses=ifelse(chArray, "character", rType), skip=2,
+                  colClasses=ifelse(chArray, "character", rType),
+                  skip=2,
                   stringsAsFactors=FALSE, na.strings="\\N",
                   logical01=TRUE, quote=""
                ), silent=TRUE)
@@ -100,11 +113,14 @@ setMethod(
                      toRet <- try(data.table::fread(
                         text=l,
                         header=FALSE, sep="\t",
-                        colClasses=ifelse(chArray, "character", rType),
+                        # colClasses=ifelse(chArray, "character", rType),
                         nrow=0,
                         stringsAsFactors=FALSE, na.strings="\\N",
                         logical01=TRUE, quote=""
                      ), silent=TRUE)
+                     for(i in 1:ncol(toRet)){
+                        toRet[[i]] <- cast_type(rType[i], toRet[[i]])
+                     }
                   }else{
                      stop(as.character(toRet))
                   }
@@ -122,11 +138,14 @@ setMethod(
                      toRet <- try(data.table::fread(
                         file=tmpf,
                         header=FALSE, sep="\t",
-                        colClasses=ifelse(chArray, "character", rType),
+                        # colClasses=ifelse(chArray, "character", rType),
                         nrow=0,
                         stringsAsFactors=FALSE, na.strings="\\N",
                         logical01=TRUE, quote=""
                      ), silent=TRUE)
+                     for(i in 1:ncol(toRet)){
+                        toRet[[i]] <- cast_type(rType[i], toRet[[i]])
+                     }
                   }else{
                      stop(as.character(toRet))
                   }
