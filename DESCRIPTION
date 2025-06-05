@@ -1,7 +1,7 @@
 Package: ClickHouseHTTP
 Type: Package
 Title: A Simple HTTP Database Interface to 'ClickHouse'
-Version: 0.3.3
+Version: 0.3.4
 Authors@R: c(
     person(
         "Patrice", "Godard",
@@ -26,11 +26,11 @@ Imports: methods, DBI (>= 0.3.0), httr, jsonlite, arrow, data.table
 Suggests: knitr, rmarkdown, dplyr, stringi
 License: GPL-3
 Encoding: UTF-8
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.2
 NeedsCompilation: no
-Packaged: 2024-04-18 04:05:28 UTC; pgodard
+Packaged: 2025-06-05 03:49:40 UTC; pgodard
 Author: Patrice Godard [aut, cre, cph],
   Eusebiu Marcu [ctb]
 Maintainer: Patrice Godard <patrice.godard@gmail.com>
 Repository: CRAN
-Date/Publication: 2024-04-18 04:50:02 UTC
+Date/Publication: 2025-06-05 05:40:07 UTC

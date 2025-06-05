@@ -16,10 +16,12 @@
   https = FALSE,
   ssl_verifypeer = TRUE,
   host_path = NA,
+  use_session = FALSE,
   session_timeout = 3600L,
   convert_uint = TRUE,
   extended_headers = list(),
   reset_handle = FALSE,
+  settings = list(),
   ...
 )
 }
@@ -44,6 +46,9 @@ HTTPS (default: TRUE)}
 \item{host_path}{a path to use on host (e.g. "ClickHouse/"):
 it allows to connect on a server behind a reverse proxy for example}
 
+\item{use_session}{a logical indicating if a session should be created and
+use in ClickHouse (default: FALSE)}
+
 \item{session_timeout}{timeout in seconds (default: 3600L seconds)}
 
 \item{convert_uint}{a logical: if TRUE (default), UInt ClickHouse
@@ -65,6 +70,9 @@ can be used for OAuth access delegation)}
 \item{reset_handle}{a logical indicating how to manage Curl handles
 (see \link[httr:handle_pool]{httr::handle_pool}). If TRUE, handle reset is used (default: FALSE).}
 
+\item{settings}{list of
+\href{https://clickhouse.com/docs/en/operations/settings/settings/}{Clickhouse settings}}
+
 \item{...}{Other parameters passed on to methods}
 }
 \value{
@@ -77,29 +85,32 @@ Connect to a ClickHouse database using the ClickHouseHTTP DBI
 }
 \examples{
 \dontrun{
-
 ## Connection ----
 
 library(DBI)
 ### HTTP connection ----
 
 con <- dbConnect(
-   ClickHouseHTTP::ClickHouseHTTP(), host="localhost",
-   port=8123
+  ClickHouseHTTP::ClickHouseHTTP(),
+  host = "localhost",
+  port = 8123
 )
 
 ### HTTPS connection (without ssl peer verification) ----
 
 con <- dbConnect(
-   ClickHouseHTTP::ClickHouseHTTP(), host="localhost",
-   port=8443, https=TRUE, ssl_verifypeer=FALSE
+  ClickHouseHTTP::ClickHouseHTTP(),
+  host = "localhost",
+  port = 8443,
+  https = TRUE,
+  ssl_verifypeer = FALSE
 )
 
 ## Write a table in the database ----
 
 library(dplyr)
 data("mtcars")
-mtcars <- as_tibble(mtcars, rownames="car")
+mtcars <- as_tibble(mtcars, rownames = "car")
 dbWriteTable(con, "mtcars", mtcars)
 
 ## Query the database ----
@@ -112,8 +123,9 @@ dbGetQuery(con, "SELECT car, mpg, cyl, hp FROM mtcars WHERE hp>=110")
 ## The `format` argument of the `dbGetQuery()` function can be used to
 ## rely on the *TabSeparatedWithNamesAndTypes* format.
 selCars <- dbGetQuery(
-   con, "SELECT car, mpg, cyl, hp FROM mtcars WHERE hp>=110",
-   format="TabSeparatedWithNamesAndTypes"
+  con,
+  "SELECT car, mpg, cyl, hp FROM mtcars WHERE hp>=110",
+  format = "TabSeparatedWithNamesAndTypes"
 )
 ## Identifying the original ClickHouse data types
 attr(selCars, "type")
@@ -130,11 +142,13 @@ dbSendQuery(con, "USE swiss")
 ## The example below shows that spaces in column names are supported.
 ## It also shows the support of R `list` using the *Array* ClickHouse type.
 data("swiss")
-swiss <- as_tibble(swiss, rownames="province")
-swiss <- mutate(swiss, "pr letters"=strsplit(province, ""))
+swiss <- as_tibble(swiss, rownames = "province")
+swiss <- mutate(swiss, "pr letters" = strsplit(province, ""))
 dbWriteTable(
-   con, "swiss", swiss,
-   engine="MergeTree() ORDER BY (Fertility, province)"
+  con,
+  "swiss",
+  swiss,
+  engine = "MergeTree() ORDER BY (Fertility, province)"
 )
 swissFromDB <- dbReadTable(con, "swiss")
 
