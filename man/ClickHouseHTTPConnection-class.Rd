@@ -38,8 +38,8 @@
 \S4method{dbCreateTable}{ClickHouseHTTPConnection}(
   conn,
   name,
-  database = NA,
   fields,
+  database = NA,
   engine = "TinyLog",
   overwrite = FALSE,
   ...,
@@ -47,13 +47,13 @@
   temporary = FALSE
 )
 
-\S4method{dbAppendTable}{ClickHouseHTTPConnection}(conn, name, database = NA, value, ..., row.names = NULL)
+\S4method{dbAppendTable}{ClickHouseHTTPConnection}(conn, name, value, database = NA, ..., row.names = NULL)
 
 \S4method{dbWriteTable}{ClickHouseHTTPConnection,ANY}(
   conn,
   name,
-  database = NA,
   value,
+  database = NA,
   overwrite = FALSE,
   append = FALSE,
   engine = "TinyLog",
@@ -135,7 +135,7 @@ A vector of character with column names.
 
 dbCreateTable() returns TRUE, invisibly.
 
-\code{invisible(TRUE)}
+The number of rows written, invisibly.
 
 TRUE; called for side effects
 }
@@ -243,7 +243,7 @@ selCars <- dbGetQuery(
   format = "TabSeparatedWithNamesAndTypes"
 )
 ## Identifying the original ClickHouse data types
-attr(selCars, "type")
+attr(selCars, "types")
 
 ## Using alternative databases stored in ClickHouse ----
 
@@ -315,7 +315,7 @@ selCars <- dbGetQuery(
   format = "TabSeparatedWithNamesAndTypes"
 )
 ## Identifying the original ClickHouse data types
-attr(selCars, "type")
+attr(selCars, "types")
 
 ## Using alternative databases stored in ClickHouse ----
 
@@ -387,7 +387,7 @@ selCars <- dbGetQuery(
   format = "TabSeparatedWithNamesAndTypes"
 )
 ## Identifying the original ClickHouse data types
-attr(selCars, "type")
+attr(selCars, "types")
 
 ## Using alternative databases stored in ClickHouse ----
 
@@ -417,5 +417,5 @@ dbReadTable(con, SQL("default.mtcars"))
 }
 }
 \seealso{
-\linkS4class{ClickHouseHTTPResult}
+\link[=ClickHouseHTTPResult-class]{ClickHouseHTTPResult}
 }
