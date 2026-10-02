@@ -31,7 +31,8 @@ setMethod(
       if (res@format == "Arrow") {
         toRet <- as.data.frame(.af_cast(
           arrow::read_feather(res@env$content, as_data_frame = FALSE),
-          convert_uint = res@conn@convert_uint
+          convert_uint = res@conn@convert_uint,
+          session_timezone = .session_timezone(res@conn@settings)
         ))
       }
       if (res@format == "TabSeparatedWithNamesAndTypes") {
@@ -65,7 +66,11 @@ setMethod(
           )
         }
         chClasses <- as.character(t(ctypes))
-        chType <- sub("^.*[(]", "", sub("[)].*$", "", chClasses))
+        chType <- ifelse(
+          grepl("DateTime", chClasses),
+          "DateTime",
+          sub("^.*[(]", "", sub("[)].*$", "", chClasses))
+        )
         chArray <- grepl("Array[(].*[)]", chClasses)
         rType <-
           ifelse(
@@ -105,7 +110,14 @@ setMethod(
               )
             )
           )
-        cast_type <- function(type, x) {
+        session_timezone <- .session_timezone(res@conn@settings)
+        col_tz <- .type_timezone(chClasses)
+        effective_tz <- ifelse(
+          !is.na(col_tz),
+          col_tz,
+          ifelse(is.null(session_timezone), NA_character_, session_timezone)
+        )
+        cast_type <- function(type, x, tz = NA_character_) {
           switch(
             type,
             "integer" = as.integer(x),
@@ -113,10 +125,17 @@ setMethod(
             "logical" = as.logical(x),
             "character" = as.character(x),
             "Date" = as.Date(x),
-            "POSIXct" = as.POSIXct(x),
+            "POSIXct" = if (is.na(tz)) {
+              y <- as.POSIXct(x, tz = "UTC")
+              attr(y, "tzone") <- NULL
+              y
+            } else {
+              as.POSIXct(x, tz = tz)
+            },
             "integer64" = as(x, "integer64")
           )
         }
+        fread_type <- ifelse(rType == "POSIXct", "character", rType)
         if (any(is.na(rType))) {
           ut <- unique(chType[which(is.na(rType))])
           warning(sprintf(
@@ -131,7 +150,7 @@ setMethod(
               text = l,
               header = FALSE,
               sep = "\t",
-              colClasses = ifelse(chArray, "character", rType),
+              colClasses = ifelse(chArray, "character", fread_type),
               skip = 2,
               stringsAsFactors = FALSE,
               na.strings = "\\N",
@@ -157,7 +176,11 @@ setMethod(
                 silent = TRUE
               )
               for (i in seq_len(ncol(toRet))) {
-                toRet[[i]] <- cast_type(rType[i], toRet[[i]])
+                toRet[[i]] <- cast_type(
+                  rType[i],
+                  toRet[[i]],
+                  tz = effective_tz[i]
+                )
               }
             } else {
               stop(as.character(toRet))
@@ -169,7 +192,7 @@ setMethod(
               file = tmpf,
               header = FALSE,
               sep = "\t",
-              colClasses = ifelse(chArray, "character", rType),
+              colClasses = ifelse(chArray, "character", fread_type),
               skip = 2,
               stringsAsFactors = FALSE,
               na.strings = "\\N",
@@ -195,15 +218,26 @@ setMethod(
                 silent = TRUE
               )
               for (i in seq_len(ncol(toRet))) {
-                toRet[[i]] <- cast_type(rType[i], toRet[[i]])
+                toRet[[i]] <- cast_type(
+                  rType[i],
+                  toRet[[i]],
+                  tz = effective_tz[i]
+                )
               }
             } else {
               stop(as.character(toRet))
             }
           }
         }
+        for (i in which(rType == "POSIXct" & !chArray)) {
+          toRet[[i]] <- cast_type(rType[i], toRet[[i]], tz = effective_tz[i])
+        }
         for (i in which(chArray)) {
-          toRet[[i]] <- .split_txt_array(toRet[[i]], type = rType[i])
+          toRet[[i]] <- .split_txt_array(
+            toRet[[i]],
+            type = rType[i],
+            tz = effective_tz[i]
+          )
         }
         colnames(toRet) <- colnames(ctypes)
         attr(toRet, "types") <- ctypes
@@ -279,7 +313,11 @@ setMethod(
     if (res@format == "Arrow") {
       af <- arrow::read_feather(res@env$content, as_data_frame = FALSE)
       rs <- af$schema
-      rsl <- .sch_cast(rs, convert_uint = res@conn@convert_uint)
+      rsl <- .sch_cast(
+        rs,
+        convert_uint = res@conn@convert_uint,
+        session_timezone = .session_timezone(res@conn@settings)
+      )
       final_schema <- rsl[[length(rsl)]]
       col_names <- sapply(final_schema$fields, function(x) x$name)
       col_types <- sapply(final_schema$fields, function(x) {
@@ -318,7 +356,11 @@ setMethod(
         )
       }
       chClasses <- as.character(t(ctypes))
-      chType <- sub("^.*[(]", "", sub("[)].*$", "", chClasses))
+      chType <- ifelse(
+        grepl("DateTime", chClasses),
+        "DateTime",
+        sub("^.*[(]", "", sub("[)].*$", "", chClasses))
+      )
       rType <- ifelse(
         grepl("DateTime", chType),
         "POSIXct",
@@ -396,9 +438,23 @@ setMethod(
 }
 
 ### Arrow cast ----
-.at_cast <- function(at, convert_uint = TRUE) {
+.session_timezone <- function(settings) {
+  if (length(settings) != 1 || is.na(settings) || !nzchar(settings)) {
+    return(NULL)
+  }
+  settings <- strsplit(settings, "&", fixed = TRUE)[[1]]
+  setting <- settings[startsWith(settings, "session_timezone=")][1]
+  if (is.na(setting)) {
+    return(NULL)
+  }
+  sub("^session_timezone=", "", setting)
+}
+.at_cast <- function(at, convert_uint = TRUE, session_timezone = NULL) {
   if (inherits(at, "ListType")) {
-    return(arrow::list_of(.at_cast(at$value_type)))
+    return(arrow::list_of(.at_cast(
+      at$value_type,
+      session_timezone = session_timezone
+    )))
   }
   toRet <- at
   if (inherits(at, "Binary")) {
@@ -412,7 +468,11 @@ setMethod(
       toRet <- arrow::date32()
     }
     if (inherits(at, "UInt32")) {
-      toRet <- arrow::timestamp()
+      toRet <- if (is.null(session_timezone)) {
+        arrow::timestamp()
+      } else {
+        arrow::timestamp(timezone = session_timezone)
+      }
     }
   }
   return(toRet)
@@ -423,7 +483,9 @@ setMethod(
   ## This function returns the intermediate type for that first step.
   if (inherits(at, "ListType")) {
     inner <- .at_intermediate(at$value_type)
-    if (is.null(inner)) return(NULL)
+    if (is.null(inner)) {
+      return(NULL)
+    }
     return(arrow::list_of(inner))
   }
   if (inherits(at, "UInt16")) {
@@ -434,7 +496,11 @@ setMethod(
   }
   return(NULL)
 }
-.sch_cast <- function(schema, convert_uint = TRUE) {
+.sch_cast <- function(
+  schema,
+  convert_uint = TRUE,
+  session_timezone = NULL
+) {
   field_names <- sapply(schema$fields, function(x) x$name)
   orig_types <- lapply(schema$fields, function(x) x$type)
 
@@ -446,7 +512,11 @@ setMethod(
   }
 
   final_types <- lapply(orig_types, function(t) {
-    .at_cast(t, convert_uint = convert_uint)
+    .at_cast(
+      t,
+      convert_uint = convert_uint,
+      session_timezone = session_timezone
+    )
   })
 
   if (!convert_uint) {
@@ -459,7 +529,15 @@ setMethod(
   ## Columns already typed as date32/timestamp pass through unchanged.
   intermediate_types <- lapply(orig_types, function(t) {
     inter <- .at_intermediate(t)
-    if (is.null(inter)) .at_cast(t, convert_uint = convert_uint) else inter
+    if (is.null(inter)) {
+      .at_cast(
+        t,
+        convert_uint = convert_uint,
+        session_timezone = session_timezone
+      )
+    } else {
+      inter
+    }
   })
 
   needs_intermediate <- any(sapply(orig_types, function(t) {
@@ -471,9 +549,17 @@ setMethod(
   }
   return(list(make_schema(final_types)))
 }
-.af_cast <- function(af, convert_uint = TRUE) {
+.af_cast <- function(
+  af,
+  convert_uint = TRUE,
+  session_timezone = NULL
+) {
   rs <- af$schema
-  rsl <- .sch_cast(rs, convert_uint = convert_uint)
+  rsl <- .sch_cast(
+    rs,
+    convert_uint = convert_uint,
+    session_timezone = session_timezone
+  )
   for (i in seq_along(rsl)) {
     af <- af$cast(rsl[[i]])
   }
@@ -481,7 +567,7 @@ setMethod(
 }
 
 ### Array from text ----
-.split_txt_array <- function(x, type) {
+.split_txt_array <- function(x, type, tz = NA_character_) {
   y <- gsub("(^[[]|[]]$)", "", x)
   y <- strsplit(y, split = ifelse(type == "character", "','", ","))
   y <- lapply(y, function(z) sub("(^'|'$)", "", z))
@@ -489,10 +575,35 @@ setMethod(
     y <- lapply(y, as.Date)
   }
   if (type == "POSIXct") {
-    y <- lapply(y, as.POSIXct)
+    y <- if (is.na(tz)) {
+      lapply(y, function(x) {
+        z <- as.POSIXct(x, tz = "UTC")
+        attr(z, "tzone") <- NULL
+        z
+      })
+    } else {
+      lapply(y, as.POSIXct, tz = tz)
+    }
   }
   if (!type %in% c("character", "Date", "POSIXct")) {
     y <- lapply(y, as, class = type)
   }
   return(y)
+}
+
+### Extract explicit timezone from a ClickHouse type string ----
+## e.g. "DateTime('Europe/Paris')" or "Nullable(DateTime64(3, 'UTC'))".
+## The quotes may come back backslash-escaped (e.g. "DateTime(\'UTC\')") since
+## this is parsed out of the raw TSV header line rather than actual TSV data.
+.type_timezone <- function(chClasses) {
+  pattern <- "\\\\?'([^'\\\\]*)\\\\?'"
+  vapply(
+    chClasses,
+    function(s) {
+      m <- regmatches(s, regexec(pattern, s))[[1]]
+      if (length(m) < 2) NA_character_ else m[2]
+    },
+    character(1),
+    USE.NAMES = FALSE
+  )
 }
